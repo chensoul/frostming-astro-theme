@@ -1,0 +1,38 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Header from '../../components/Header.astro';
+import { getCollection } from 'astro:content';
+import { getEntry } from 'astro:content';
+import { themeConfig } from '../../theme/config';
+
+const posts = await getCollection('posts');
+const counts = new Map<string, number>();
+for (const p of posts) {
+  for (const t of p.data.tags || []) {
+    counts.set(t, (counts.get(t) || 0) + 1);
+  }
+}
+const tags = Array.from(counts.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+const entry = await getEntry('pages', 'tags');
+let Content: any = null;
+if (entry) {
+  ({ Content } = await entry.render());
+}
+const title = (entry?.data.title ?? '标签') + ' | ' + themeConfig.siteName;
+const canonical = themeConfig.siteUrl.replace(/\/$/, '') + '/tags/';
+---
+<BaseLayout title={title} canonical={canonical}>
+  <Header />
+  <main class="py-12">
+    <article class="prose tags-prose max-w-none dark:prose-invert">
+      {Content ? <Content /> : <h1 class="mb-8 text-3xl font-bold">标签</h1>}
+    </article>
+    <div class="tags-list flex flex-wrap gap-3">
+      {tags.map(([t, n]) => (
+        <a href={`/tags/${encodeURIComponent(t)}/`} class="inline-flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2 text-sm text-gray-700 hover:bg-gray-200 transition-colors dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
+          {t} <span class="text-gray-400 dark:text-gray-500">{n}</span>
+        </a>
+      ))}
+    </div>
+  </main>
+</BaseLayout>

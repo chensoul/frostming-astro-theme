@@ -1,0 +1,50 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header.astro';
+import { getCollection, type CollectionEntry } from 'astro:content';
+import { themeConfig } from '../theme/config';
+
+const posts: CollectionEntry<'posts'>[] = (await getCollection('posts'))
+  .filter((p: CollectionEntry<'posts'>) => !p.data.draft)
+  .sort((a: CollectionEntry<'posts'>, b: CollectionEntry<'posts'>) => +b.data.pubDate - +a.data.pubDate);
+const grouped: Record<string, CollectionEntry<'posts'>[]> = posts.reduce((acc, p) => {
+  const y = String(p.data.pubDate.getFullYear());
+  (acc[y] ??= []).push(p);
+  return acc;
+}, {} as Record<string, CollectionEntry<'posts'>[]>);
+const years = Object.keys(grouped).sort((a, b) => +b - +a);
+---
+<BaseLayout title={`归档 | ${themeConfig.siteName}`} canonical={`${themeConfig.siteUrl.replace(/\/$/, '')}/archive/`}>
+  <Header />
+  <main class="py-12">
+    <a href="/" class="mb-4 inline-flex items-center gap-2 text-sm text-gray-600 hover:text-black dark:text-gray-400 dark:hover:text-white transition-colors">
+      <svg width="1em" height="1em" class="size-4" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m10 19l-7-7l7-7l1.425 1.4L6.825 10H21v2H6.825l4.6 4.6z"/></svg>
+      首页
+    </a>
+    <h1 class="mb-8 text-2xl font-bold">归档</h1>
+    {years.map((y) => (
+      <>
+        <h2 class="mb-4 text-2xl font-bold">{y}</h2>
+        <ul class="divide-y divide-gray-200 dark:divide-gray-800">
+          {grouped[y].map(({ data, slug }) => (
+            <li class="py-3 first:pt-0">
+              <article class="grid grid-cols-1 gap-3 sm:grid-cols-[120px_1fr] sm:gap-6 sm:items-baseline">
+                <time datetime={data.pubDate.toISOString()} class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 font-mono whitespace-nowrap">
+                  {`${data.pubDate.getFullYear()}–${String(data.pubDate.getMonth() + 1).padStart(2, '0')}–${String(data.pubDate.getDate()).padStart(2, '0')}`}
+                </time>
+                <div class="flex flex-wrap items-center gap-2">
+                  <a href={`/posts/${String(data.pubDate.getFullYear())}/${String(data.pubDate.getMonth() + 1).padStart(2, '0')}/${String(data.pubDate.getDate()).padStart(2, '0')}/${slug}/`} class="post-title text-lg font-bold leading-6 hover:opacity-70 transition-opacity">{data.title}</a>
+                  {data.tags?.map((t: string) => (
+                    <a href={`/tags/${encodeURIComponent(t)}/`} class="inline-block rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 px-3 py-1 text-xs">
+                      {t}
+                    </a>
+                  ))}
+                </div>
+              </article>
+            </li>
+          ))}
+        </ul>
+      </>
+    ))}
+  </main>
+</BaseLayout>

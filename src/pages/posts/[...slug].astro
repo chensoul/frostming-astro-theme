@@ -1,0 +1,149 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Header from '../../components/Header.astro';
+import Comments from '../../components/Comments.astro';
+import { getCollection, type CollectionEntry } from 'astro:content';
+import { themeConfig } from '../../theme/config';
+
+export async function getStaticPaths() {
+  const all: CollectionEntry<'posts'>[] = await getCollection('posts');
+  return all.map((entry) => {
+    const d = entry.data.pubDate;
+    const y = String(d.getFullYear());
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return { params: { slug: `${y}/${m}/${day}/${entry.slug}` } };
+  });
+}
+const all: CollectionEntry<'posts'>[] = await getCollection('posts');
+const slugPath = Astro.params.slug!;
+const tailSlug = slugPath.split('/').pop()!;
+const entry = all.find((e: CollectionEntry<'posts'>) => e.slug === tailSlug);
+if (!entry) throw new Error(`Post not found: ${slugPath}`);
+const { Content, headings } = await entry.render();
+const tocHeadings = (headings ?? []) as Array<{ depth: number; slug: string; text: string }>;
+const { title, pubDate, tags, image, imageAlt } = entry.data;
+const commentsEnabled = themeConfig.comments?.enabled;
+---
+<BaseLayout title={`${title} | ${themeConfig.siteName}`} canonical={`${themeConfig.siteUrl.replace(/\/$/, '')}/posts/${slugPath}/`}>
+  <Header />
+  <main class="py-12">
+    <article>
+      <header class="mb-12 text-center">
+        <h1 class="text-2xl font-bold sm:text-3xl">{title}</h1>
+        <time datetime={pubDate.toISOString()} class="mt-4 block text-xs sm:text-sm text-gray-500 dark:text-gray-400 font-mono whitespace-nowrap">
+          {`${pubDate.getFullYear()}–${String(pubDate.getMonth() + 1).padStart(2, '0')}–${String(pubDate.getDate()).padStart(2, '0')}`}
+        </time>
+        {tags?.length ? (
+          <div class="mt-4 flex flex-wrap justify-center gap-2">
+            {tags.map((t: string) => (
+              <a href={`/tags/${encodeURIComponent(t)}/`} class="inline-block rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 px-3 py-1 text-xs">
+                {t}
+              </a>
+            ))}
+          </div>
+        ) : null}
+      </header>
+      <script type="application/ld+json" is:inline>
+        {JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'BlogPosting',
+          headline: title,
+          datePublished: pubDate.toISOString(),
+          dateModified: pubDate.toISOString(),
+          mainEntityOfPage: `${themeConfig.siteUrl.replace(/\/$/, '')}/posts/${slugPath}/`,
+          image: image ? (image.startsWith('http') ? image : `${themeConfig.siteUrl.replace(/\/$/, '')}${image}`) : `${themeConfig.siteUrl.replace(/\/$/, '')}/avatar.svg`,
+          author: { '@type': 'Person', name: themeConfig.author.name },
+          publisher: { '@type': 'Organization', name: themeConfig.siteName, logo: { '@type': 'ImageObject', url: `${themeConfig.siteUrl.replace(/\/$/, '')}/avatar.svg` } },
+          keywords: (tags ?? []).join(', ')
+        })}
+      </script>
+      {image && (
+        <img src={image} alt={imageAlt || title} class="mb-12 w-full rounded-lg" />
+      )}
+      <div class="relative lg:flex lg:gap-12">
+        <div class="max-w-none w-full prose dark:prose-invert shrink-0">
+          <Content />
+        </div>
+        {tocHeadings.length ? (
+          <aside class="hidden lg:block lg:w-64 lg:shrink-0">
+            <nav class="sticky top-20">
+              <h2 class="mb-4 text-sm font-semibold">目录</h2>
+              <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                {tocHeadings
+                  .filter((h) => h.depth >= 2 && h.depth <= 3)
+                  .map((h) => (
+                    <li style={`padding-left: ${h.depth === 3 ? '0.75rem' : '0rem'}`}>
+                      <a href={`#${h.slug}`} class="toc-link hover:text-black dark:hover:text-white transition-colors">
+                        {h.text}
+                      </a>
+                    </li>
+                  ))}
+              </ul>
+            </nav>
+          </aside>
+        ) : null}
+      </div>
+      <button id="back-to-top" aria-label="返回顶部" class="fixed bottom-6 right-6 z-40 hidden rounded-full bg-gray-900 text-white shadow-lg hover:bg-black dark:bg-gray-100 dark:text-black dark:hover:bg-white transition-colors p-3">
+        <svg width="1em" height="1em" class="size-5" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 20V7.825l-3.6 3.6L6 10l6-6l6 6l-1.4 1.425L13 7.825V20z"/></svg>
+      </button>
+      <script>
+        const links = Array.from(document.querySelectorAll(".toc-link"));
+        const ids = links.map((a) => a.getAttribute("href")?.slice(1)).filter(Boolean) as string[];
+        const headings = ids.map((id: string) => document.getElementById(id));
+        const setActive = (id: string) => {
+          for (const a of links) a.classList.remove("active");
+          const active = links.find((a) => a.getAttribute("href") === `#${id}`);
+          active?.classList.add("active");
+        };
+        const observer = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) setActive(entry.target.id);
+            });
+          },
+          { rootMargin: "-40% 0px -50% 0px", threshold: 0.01 }
+        );
+        headings.forEach((el) => el && observer.observe(el));
+        const topBtn = document.getElementById("back-to-top");
+        const toggleBtn = () => {
+          if (window.scrollY > 300) topBtn?.classList.remove("hidden");
+          else topBtn?.classList.add("hidden");
+        };
+        window.addEventListener("scroll", toggleBtn, { passive: true });
+        topBtn?.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+        toggleBtn();
+        const pres = Array.from(document.querySelectorAll(".prose pre"));
+        pres.forEach((pre) => {
+          if (pre.querySelector(".code-copy-btn")) return;
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "code-copy-btn";
+          btn.textContent = "Copy";
+          btn.addEventListener("click", async () => {
+            const codeEl = pre.querySelector("code");
+            const text = codeEl?.innerText || "";
+            try {
+              await navigator.clipboard.writeText(text);
+              btn.textContent = "Copied";
+            } catch {
+              btn.textContent = "Failed";
+            } finally {
+              setTimeout(() => (btn.textContent = "Copy"), 1500);
+            }
+          });
+          pre.appendChild(btn);
+        });
+      </script>
+      <footer class="mt-12 border-t border-gray-200 pt-8 text-sm text-gray-600 dark:border-gray-800 dark:text-gray-400"> <p class="flex flex-wrap items-center gap-2"> 
+      <span>本文采用</span> 
+      <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 underline hover:text-black dark:hover:text-white"> <svg width="1em" height="1em" class="size-4" data-icon="simple-icons:creativecommons">   
+      <symbol id="ai:simple-icons:creativecommons" viewBox="0 0 24 24"><path fill="currentColor" d="M11.983 0c-3.292 0-6.19 1.217-8.428 3.485C1.25 5.819 0 8.844 0 12c0 3.189 1.217 6.148 3.522 8.45c2.305 2.3 5.3 3.55 8.461 3.55c3.16 0 6.222-1.25 8.593-3.583C22.815 18.214 24 15.287 24 12c0-3.255-1.186-6.214-3.458-8.483C18.238 1.217 15.275 0 11.983 0m.033 2.17c2.7 0 5.103 1.02 6.98 2.893c1.843 1.841 2.83 4.274 2.83 6.937c0 2.696-.954 5.063-2.798 6.872c-1.943 1.906-4.444 2.926-7.012 2.926c-2.601 0-5.038-1.019-6.914-2.893c-1.877-1.875-2.93-4.34-2.93-6.905c0-2.597 1.053-5.063 2.93-6.97c1.844-1.874 4.214-2.86 6.914-2.86M8.68 8.278C6.723 8.278 5.165 9.66 5.165 12c0 2.38 1.465 3.722 3.581 3.722c1.358 0 2.516-.744 3.155-1.874l-1.491-.758c-.333.798-.839 1.037-1.478 1.037c-1.105 0-1.61-.917-1.61-2.126c0-1.21.426-2.127 1.61-2.127c.32 0 .96.173 1.332.97l1.597-.838c-.68-1.236-1.837-1.728-3.181-1.728m6.932 0c-1.957 0-3.514 1.382-3.514 3.722c0 2.38 1.464 3.722 3.58 3.722c1.359 0 2.516-.744 3.155-1.874l-1.49-.758c-.333.798-.84 1.037-1.478 1.037c-1.105 0-1.611-.917-1.611-2.126c0-1.21.426-2.127 1.61-2.127c.32 0 .96.173 1.332.97l1.597-.838c-.68-1.236-1.837-1.728-3.181-1.728"></path></symbol><use href="#ai:simple-icons:creativecommons"></use>  </svg>
+CC BY-NC-SA 4.0
+</a> <span>许可协议进行授权</span> </p> <p class="mt-2">转载请注明出处</p> 
+</footer>
+      {!commentsEnabled && <hr class="mt-6 border-gray-200 dark:border-gray-800" />}
+      <Comments />
+    </article>
+  </main>
+</BaseLayout>

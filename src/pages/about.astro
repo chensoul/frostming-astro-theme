@@ -1,0 +1,23 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header.astro';
+import { getEntry } from 'astro:content';
+import { themeConfig } from '../theme/config';
+const entry = await getEntry('pages', 'about');
+let Content: any = null;
+if (entry) {
+  ({ Content } = await entry.render());
+}
+const title = (entry?.data.title ?? '关于') + ' | ' + themeConfig.siteName;
+const canonical = themeConfig.siteUrl.replace(/\/$/, '') + '/about/';
+---
+<BaseLayout title={title} canonical={canonical}>
+  <Header />
+  <main class="py-12">
+    <article>
+      <div class="prose about-prose max-w-none dark:prose-invert">
+        {Content ? <Content /> : <p>尚未提供 about.md 内容</p>}
+      </div>
+    </article>
+  </main>
+</BaseLayout>

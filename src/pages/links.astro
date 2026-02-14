@@ -1,0 +1,24 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header.astro';
+import { getEntry } from 'astro:content';
+import { themeConfig } from '../theme/config';
+const entry = await getEntry('pages', 'links');
+let Content: any = null;
+if (entry) {
+  ({ Content } = await entry.render());
+}
+const title = (entry?.data.title ?? '链接') + ' | ' + themeConfig.siteName;
+const canonical = themeConfig.siteUrl.replace(/\/$/, '') + '/links/';
+---
+<BaseLayout title={title} canonical={canonical}>
+  <Header />
+  <main class="py-12">
+    <h1 class="mb-8 text-2xl font-bold">链接</h1>
+    <article>
+      <div class="prose links-prose max-w-none dark:prose-invert">
+        {Content ? <Content /> : <p>尚未提供 links.md 内容</p>}
+      </div>
+    </article>
+  </main>
+</BaseLayout>

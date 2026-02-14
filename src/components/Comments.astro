@@ -1,0 +1,88 @@
+---
+import { themeConfig } from '../theme/config';
+const provider = themeConfig.comments?.provider;
+const enabled = themeConfig.comments?.enabled;
+const utterances = themeConfig.comments?.utterances;
+const artalk = themeConfig.comments?.artalk;
+const canRenderUtterances = enabled && provider === 'utterances' && utterances?.repo;
+const canRenderArtalk = enabled && provider === 'artalk' && artalk?.server && artalk?.site;
+---
+{canRenderUtterances ? (
+  <section class="mt-12">
+    <h2 class="mb-3 text-base font-semibold">评论</h2>
+    <div id="comments" class="w-full max-w-none"></div>
+    <button id="comments-load" class="mt-4 px-3 py-1 text-sm rounded bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100">加载评论</button>
+    <script is:inline>
+      (() => {
+        const container = document.getElementById("comments");
+        const btn = document.getElementById("comments-load");
+        let loaded = false;
+        const load = () => {
+          if (loaded || !container) return;
+          loaded = true;
+          btn?.remove();
+          const s = document.createElement("script");
+          s.src = "https://utteranc.es/client.js";
+          s.setAttribute("repo", "{utterances!.repo}");
+          s.setAttribute("issue-term", "{utterances!.issueTerm || 'pathname'}");
+          s.setAttribute("label", "{utterances!.label || 'comment'}");
+          s.setAttribute("theme", document.documentElement.classList.contains("dark") ? "github-dark" : "github-light");
+          s.crossOrigin = "anonymous";
+          s.async = true;
+          container.appendChild(s);
+        };
+        btn?.addEventListener("click", load);
+        const io = new IntersectionObserver((entries) => {
+          entries.forEach((e) => { if (e.isIntersecting) load(); });
+        }, { rootMargin: "200px" });
+        if (container) io.observe(container);
+      })();
+    </script>
+  </section>
+) : canRenderArtalk ? (
+  <section class="mt-12 border-t border-gray-200 pt-8 dark:border-gray-800">
+    <h2 class="mb-6 text-xl font-semibold">评论</h2>
+    <div
+      id="comments"
+      class="w-full max-w-none"
+      data-artalk-server={artalk!.server}
+      data-artalk-site={artalk!.site}
+    ></div>
+    <button id="comments-load" class="mt-4 px-3 py-1 text-sm rounded bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100">加载评论</button>
+    <script is:inline>
+      (() => {
+        const container = document.getElementById("comments");
+        const btn = document.getElementById("comments-load");
+        let loaded = false;
+        const load = () => {
+          if (loaded || !container) return;
+          loaded = true;
+          btn?.remove();
+          const link = document.createElement("link");
+          link.rel = "stylesheet";
+          link.href = "https://unpkg.com/artalk@2.9.1/dist/Artalk.css";
+          document.head.appendChild(link);
+          const s = document.createElement("script");
+          s.src = "https://unpkg.com/artalk@2.9.1/dist/Artalk.js";
+          s.async = true;
+          s.onload = () => {
+            // @ts-ignore
+            window.Artalk.init({
+              el: container,
+              server: container.getAttribute("data-artalk-server") || "",
+              site: container.getAttribute("data-artalk-site") || "",
+              pageKey: location.pathname,
+              darkMode: document.documentElement.classList.contains("dark")
+            });
+          };
+          document.body.appendChild(s);
+        };
+        btn?.addEventListener("click", load);
+        const io = new IntersectionObserver((entries) => {
+          entries.forEach((e) => { if (e.isIntersecting) load(); });
+        }, { rootMargin: "200px" });
+        if (container) io.observe(container);
+      })();
+    </script>
+  </section>
+) : null}
